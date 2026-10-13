@@ -1,0 +1,11 @@
+package com.campuscare.complaint;
+import jakarta.validation.Valid;import org.springframework.http.HttpStatus;import org.springframework.web.bind.annotation.*;import org.springframework.web.server.ResponseStatusException;import java.util.List;import java.util.Map;
+@RestController @RequestMapping("/api/complaints") public class ComplaintController {
+private final ComplaintRepository repository; public ComplaintController(ComplaintRepository repository){this.repository=repository;}
+@GetMapping public List<Complaint> all(){return repository.findAllByOrderByCreatedAtDesc();}
+@GetMapping("/{id}") public Complaint get(@PathVariable Long id){return repository.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Complaint not found"));}
+@PostMapping @ResponseStatus(HttpStatus.CREATED) public Complaint create(@Valid @RequestBody Complaint complaint){complaint.setStatus(ComplaintStatus.OPEN);complaint.setAssignee("Unassigned");complaint.setTicketId("CC-"+System.currentTimeMillis());return repository.save(complaint);}
+@PatchMapping("/{id}/status") public Complaint status(@PathVariable Long id,@RequestBody Map<String,String> body){Complaint c=get(id);try{c.setStatus(ComplaintStatus.valueOf(body.getOrDefault("status","OPEN").trim().toUpperCase().replace(' ','_')));}catch(IllegalArgumentException e){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported status");}return repository.save(c);}
+@PatchMapping("/{id}/assignment") public Complaint assignment(@PathVariable Long id,@RequestBody Map<String,String> body){Complaint c=get(id);String a=body.get("assignee");if(a==null||a.isBlank())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Assignee is required");c.setAssignee(a.trim());if(c.getStatus()==ComplaintStatus.OPEN)c.setStatus(ComplaintStatus.ASSIGNED);return repository.save(c);}
+@DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable Long id){if(!repository.existsById(id))throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Complaint not found");repository.deleteById(id);}
+}
